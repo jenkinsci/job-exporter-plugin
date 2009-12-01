@@ -12,7 +12,7 @@
   <version>0.1.0-SNAPSHOT</version>
   <name>Export dynamic job data</name>
   <description>This plugin exports job parameters into a properties file.</description>
-  <url>http://wiki.hudson-ci.org/display/HUDSON/job-exporter+plugin</url>
+  <url>http://wiki.hudson-ci.org/display/HUDSON/Job+Exporter+Plugin</url>
   <inceptionYear>2009</inceptionYear>
 
   <properties>
