@@ -1,0 +1,39 @@
+<div>
+  <p>
+    This build step exports various build job and hudson parameters into a property file 
+    named <tt></tt>hudsonBuild.properties</tt> in the project workspace.
+    This file contains the following informations:
+  </p>
+   <table><tr>
+   <td><tt>build.jobName</tt></td>
+   <td>Name of running job.</td>
+   </tr><tr>
+   <td><tt>build.number</tt></td>
+   <td>Number of running job.</td>
+   </tr><tr>
+   <td><tt>build.user.name</tt></td>
+   <td>User that triggered this job.</td>
+   </tr><tr>
+   <td><tt>build.user.fullName</tt></td>
+   <td>Full name of user that triggered this job.</td>
+   </tr><tr>
+   <td><tt>build.user.emailAddress</tt></td>
+   <td>Email address of user that triggered this job. If no user with email address was found, the admin email address stands here.</td>
+   </tr><tr>
+   <td><tt>build.admin.emailAddress</tt></td>
+   <td>This is the current administrator email address. See main hudson configure sheet: <em>E-mail Notification</em>, entry <em>System Admin E-mail Address</em>.</td>
+   </tr><tr>
+   <td><tt>build.id</tt></td>
+   <td>Build id.</td>
+   </tr><tr>
+   <td><tt>build.summary</tt></td>
+   <td>Build summary like <tt></tt>Executor #3 for master : executing MyJob #28</tt>.</td>
+   </tr><tr>
+   <td><tt>build.cvsBranch</tt></td>
+   <td>CVS branch, if configured.</td>
+   </tr><tr>
+   <td><tt>build.hudson.version</tt></td>
+   <td>Running hudson version.</td>
+   </tr>
+   </table>
+</div>
