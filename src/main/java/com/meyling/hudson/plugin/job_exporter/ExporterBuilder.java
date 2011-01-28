@@ -15,6 +15,8 @@ import hudson.model.Executor;
 import hudson.model.Hudson;
 import hudson.model.Result;
 import hudson.model.User;
+import hudson.model.Cause.RemoteCause;
+import hudson.model.Cause.UpstreamCause;
 import hudson.model.Cause.UserCause;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
@@ -25,6 +27,7 @@ import hudson.util.LogTaskListener;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Properties;
 import java.util.logging.Level;
@@ -99,19 +102,40 @@ public class ExporterBuilder extends Builder {
             	List<Cause> cl = ca.getCauses();
                 for (Cause c : cl) {
                 	if (c instanceof UserCause) {
-                		UserCause uc = (UserCause) c;
-                    	export.put(prefix + "user.name", StringUtils.defaultString(uc.getUserName()));
-                    	User u = User.get(uc.getUserName());
+                		final UserCause uc = (UserCause) c;
+                		final String authenticationName = Hudson.getAuthentication().getName();
+                    	export.put(prefix + "user.name", StringUtils.defaultString(authenticationName));
+                    	User u = User.get(authenticationName);
                     	export.put(prefix + "user.fullName", StringUtils.defaultString(u.getFullName()));
                     	Mailer.UserProperty umail = u.getProperty(Mailer.UserProperty.class);
                     	String email = StringUtils.defaultString(umail.getAddress()).trim();
                     	if (email.length() > 0) {
                     		export.put(prefix + "user.emailAddress", email);
                     	}
+                	} else if (c instanceof UpstreamCause) {
+                		final UpstreamCause uc = (UpstreamCause) c; 
+                    	export.put(prefix + "upstream.number", "" + uc.getUpstreamBuild());
+                    	export.put(prefix + "upstream.project", StringUtils.defaultString(uc.getUpstreamProject()));
+                	} else if (c instanceof RemoteCause) {
+                		final RemoteCause uc = (RemoteCause) c;
+                		String host = uc.getShortDescription();	// fallback
+                		try {
+                			host = (String) getFieldValue(uc, "host");
+                		} catch (Exception e) {
+                			// ignore
+                		}
+                    	export.put(prefix + "remote.host", "" + host);
+                		String note = uc.getShortDescription();	// fallback
+                		try {
+                			note = (String) getFieldValue(uc, "note");
+                		} catch (Exception e) {
+                			// ignore
+                		}
+                    	export.put(prefix + "remote.note", "" + note);
                 	}
                 }
             }
-            FilePath ws = build.getProject().getWorkspace();
+            FilePath ws = build.getWorkspace();
             FilePath hudson = ws.child("hudsonBuild.properties");
             if (hudson.exists()) {
             	if (!hudson.delete()) {
@@ -122,7 +146,7 @@ public class ExporterBuilder extends Builder {
                 	log(listener.getLogger(), "old file deleted: " + hudson);
             	}
             }
-            OutputStream out = hudson.write();
+            final OutputStream out = hudson.write();
             export.store(out, "created by " + this.getClass().getName());
             out.close();
     		log(listener.getLogger(), "new properties file written: " + hudson);
@@ -205,5 +229,59 @@ public class ExporterBuilder extends Builder {
 
     }
     
+    /**
+     * We learned so much from the great Jedi master. Using the force we can get and set private
+     * fields of arbitrary objects.
+     * This method returns the contents of an object variable. The class hierarchy is recursively
+     * searched to find such a field (even if it is private).
+     *
+     * @param   obj     Object.
+     * @param   name    Variable name.
+     * @return  Contents of variable.
+     * @throws  NoSuchFieldException    Variable of given name was not found.
+     */
+    public static Object getFieldValue(final Object obj, final String name) throws NoSuchFieldException {
+        final Field field = getField(obj, name);
+        try {
+            return field.get(obj);
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException(e);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Get field of given name in given object. The class hierarchy is recursively searched
+     * to find such a field (even if it is private).
+     *
+     * @param   obj     Object to work on.
+     * @param   name    Search this field.
+     * @return  Found field.
+     * @throws  NoSuchFieldException    Field with name <code>name</code> was not found.
+     */
+    @SuppressWarnings("unchecked")
+	public static Field getField(final Object obj, final String name) throws NoSuchFieldException {
+        Field field = null;
+        try {
+            Class cl = obj.getClass();
+            while (!Object.class.equals(cl)) {
+                try {
+                    field = cl.getDeclaredField(name);
+                    break;
+                } catch (NoSuchFieldException ex) {
+                    cl = cl.getSuperclass();
+                }
+            }
+            if (field == null) {
+                throw (new NoSuchFieldException(name + " within " + obj.getClass()));
+            }
+            field.setAccessible(true);
+        } catch (SecurityException e) {
+            throw new RuntimeException(e);
+        }
+        return field;
+    }
+
 }
 
