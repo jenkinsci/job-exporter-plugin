@@ -10,7 +10,7 @@
   <artifactId>job-exporter</artifactId>
   <packaging>hpi</packaging>
   <name>Export dynamic job data</name>
-  <version>0.2.1-SNAPSHOT</version>
+  <version>0.3.0-SNAPSHOT</version>
   <description>This plugin exports job parameters into a properties file.</description>
   <url>http://wiki.hudson-ci.org/display/HUDSON/Job+Exporter+Plugin</url>
   <inceptionYear>2009</inceptionYear>
