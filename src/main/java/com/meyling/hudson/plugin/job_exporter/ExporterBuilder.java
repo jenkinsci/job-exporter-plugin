@@ -43,7 +43,7 @@ import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
 /**
- * Export hudson job information into a properties file.
+ * Export Jenkins job information into a properties file.
  *
  * <p>
  * When the user configures the project and enables this builder,
@@ -186,14 +186,9 @@ public class ExporterBuilder extends Builder {
     }
 
     /**
-     * Descriptor for {@link ExporterBuilder}. Used as a singleton.
-     * The class is marked as public so that it can be accessed from views.
-     *
-     * <p>
-     * See <tt>views/hudson/plugins/exporter/ExporterBuilder/*.jelly</tt>
-     * for the actual HTML fragment for the configuration screen.
+     * Descriptor for {@link ExporterBuilder}.
      */
-    @Extension // this marker indicates Hudson that this is an implementation of an extension point.
+    @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
         
 //        To persist global configuration information,

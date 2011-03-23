@@ -12,7 +12,7 @@
   <name>Export dynamic job data</name>
   <version>0.3.1-SNAPSHOT</version>
   <description>This plugin exports job parameters into a properties file.</description>
-  <url>http://wiki.hudson-ci.org/display/HUDSON/Job+Exporter+Plugin</url>
+  <url>http://wiki.jenkins-ci.org/display/JENKINS/Job+Exporter+Plugin</url>
   <inceptionYear>2009</inceptionYear>
 
   <properties>
@@ -37,12 +37,7 @@
       <comments>All source code is under the MIT license.</comments>
     </license>
   </licenses>
-  <scm>
-  	<url>https://svn.java.net/svn/hudson~svn/trunk/hudson/plugins/job-exporter</url>
-    <connection>scm:svn:https://guest@svn.java.net/svn/hudson~svn/trunk/hudson/plugins/job-exporter</connection>
-    <developerConnection>scm:svn:https://svn.java.net/svn/hudson~svn/trunk/hudson/plugins/job-exporter</developerConnection>
-  </scm>
-  
+
   <dependencies>
   </dependencies>
 </project>
