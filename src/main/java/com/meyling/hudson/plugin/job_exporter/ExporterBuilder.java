@@ -4,20 +4,19 @@ import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
-import hudson.model.AbstractBuild;
-import hudson.model.AbstractProject;
 import hudson.model.Build;
 import hudson.model.BuildListener;
+import hudson.model.Result;
+import hudson.model.AbstractBuild;
+import hudson.model.AbstractProject;
 import hudson.model.Cause;
-import hudson.model.CauseAction;
+import hudson.model.Cause.RemoteCause;
+import hudson.model.Cause.UpstreamCause;
+import hudson.model.Cause.UserIdCause;
 import hudson.model.Computer;
 import hudson.model.Executor;
 import hudson.model.Hudson;
-import hudson.model.Result;
 import hudson.model.User;
-import hudson.model.Cause.RemoteCause;
-import hudson.model.Cause.UpstreamCause;
-import hudson.model.Cause.UserCause;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.tasks.Mailer;
@@ -37,7 +36,10 @@ import javax.servlet.ServletException;
 
 import net.sf.json.JSONObject;
 
+import org.apache.commons.lang.ClassUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.exception.ExceptionUtils;
+import org.apache.commons.lang.time.DateFormatUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
@@ -61,6 +63,8 @@ import org.kohsuke.stapler.StaplerRequest;
  */
 public class ExporterBuilder extends Builder {
     
+    private final static String prefix = "build.";
+
     @DataBoundConstructor
     public ExporterBuilder() {
     }
@@ -68,112 +72,146 @@ public class ExporterBuilder extends Builder {
     @Override
     public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) {
         // this is where you 'build' the project
-        String prefix = "build.";
-        Properties export = new Properties();
+        final Properties export = new Properties();
+        boolean result = true;
         try {
-            System.out.println(Computer.currentComputer().getHostName());
-            export.put(prefix + "hudson.version", StringUtils.defaultString(build.getHudsonVersion()));
-            export.put(prefix + "id", StringUtils.defaultString(build.getId()));
-            Executor executor = build.getExecutor();
-            if (executor != null) {
-                export.put(prefix + "summary", StringUtils.defaultString(build.getExecutor().getName()));
+            log(listener, "###################################################################");
+            log(listener, "job-exporter plugin  started");
+            put(listener, export, "hudson.version", build.getHudsonVersion());
+            put(listener, export, "host", Computer.currentComputer().getHostName());
+            put(listener, export, "id", build.getId());
+            put(listener, export, "duration", build.getTimestampString());
+            put(listener, export, "slave", build.getBuiltOnStr());
+            put(listener, export, "started", DateFormatUtils.ISO_DATETIME_FORMAT.format(build.getTimestamp()));
+            put(listener, export, "result", Result.SUCCESS.toString()); // set default
+            if (build.getResult() != null) {
+                put(listener, export, "result", build.getResult().toString());
             }
-            export.put(prefix + "number", "" + build.getNumber());
-            
-            EnvVars env = build.getEnvironment(new LogTaskListener(Logger.getLogger(this.getClass().getName()), Level.INFO));
+            final Executor executor = build.getExecutor();
+            if (executor != null) {
+                put(listener, export, "summary", executor.getName());
+                put(listener, export, "executor", "" + executor.getNumber());
+                put(listener, export, "elapsedTime", "" + executor.getElapsedTime());
+            }
+            put(listener, export, "number", "" + build.getNumber());
+            final EnvVars env = build.getEnvironment(new LogTaskListener(Logger.getLogger(
+                this.getClass().getName()), Level.INFO));
             
             if (env != null) {
-                export.put(prefix + "jobName", StringUtils.defaultString(env.get("JOB_NAME")));
-                export.put(prefix + "cvsBranch", StringUtils.defaultString(env.get("CVS_BRANCH")));
+                putIfNotNull(listener, export, "jobName", env.get("JOB_NAME"));
+                putIfNotNull(listener, export, "cvsBranch", env.get("CVS_BRANCH"));
+                putIfNotNull(listener, export, "svnRevision", env.get("SVN_REVISION"));
+                putIfNotNull(listener, export, "gitBranch", env.get("GIT_BRANCH")); 
             }
-            log(listener.getLogger(), "exporting properties");
             
-            Mailer.DescriptorImpl descriptor = (Mailer.DescriptorImpl) Hudson.getInstance().getDescriptorByType(
+            final Mailer.DescriptorImpl descriptor
+                = (Mailer.DescriptorImpl) Hudson.getInstance().getDescriptorByType(
                 Mailer.DescriptorImpl.class);
             export.put(prefix + "admin.emailAddress", descriptor.getAdminAddress());
-
-            // now we iterate over the cause actions to identify the user and get his properties
-            List<CauseAction> cal = build.getActions(CauseAction.class);
-            for (CauseAction ca : cal) {
-                log(listener.getLogger(), ca.getDisplayName());
-                log(listener.getLogger(), ca.toString());
-                List<Cause> cl = ca.getCauses();
-                for (Cause c : cl) {
-                    if (c instanceof UserCause) {
-                        // set admin email address as fallback, if we don't get a user email address 
-                        export.put(prefix + "user.emailAddress", descriptor.getAdminAddress());
-                        final UserCause uc = (UserCause) c;
-                        export.put(prefix + "user.name", uc.getUserName());
-                        String authenticationName = Hudson.getAuthentication().getName();
-                        try {
-                            authenticationName = (String) getFieldValue(uc, "authenticationName");
-                        } catch (Exception e) {
-                            // ignore
+            final List<Cause> cl = build.getCauses();
+            log(listener, "  we have " + cl.size() + " build cause"
+                + (cl.size() > 1 ? "s" : "") + (cl.size() > 0 ? ":" : ""));
+            for (final Cause c : cl) {
+                log(listener, "      " + ClassUtils.getShortClassName(c.getClass())
+                    + "  " + c.getShortDescription());
+                if (c instanceof UserIdCause) {
+                    // set admin email address as fallback, if we don't get an user email address 
+                    export.put(prefix + "user.emailAddress", descriptor.getAdminAddress());
+                    final UserIdCause uc = (UserIdCause) c;
+                    final String userId = uc.getUserId();
+                    put(listener, export, "user.id", StringUtils.defaultIfEmpty(userId, "null"));
+                    put(listener, export, "user.name", uc.getUserName());
+                    try {
+                        final User u = User.get(userId);
+                        if (u != null) {
+                            put(listener, export, "user.fullName", u.getFullName());
+                            final Mailer.UserProperty umail = u.getProperty(Mailer.UserProperty.class);
+                            put(listener, export, "user.emailAddress", StringUtils.trimToEmpty(umail.getAddress()));
                         }
-                        export.put(prefix + "user.name", StringUtils.defaultString(authenticationName));
-                        try {
-                            User u = User.get(authenticationName);
-                            export.put(prefix + "user.fullName", StringUtils.defaultString(u.getFullName()));
-                            Mailer.UserProperty umail = u.getProperty(Mailer.UserProperty.class);
-                            String email = StringUtils.defaultString(umail.getAddress()).trim();
-                            if (email.length() > 0) {
-                                export.put(prefix + "user.emailAddress", email);
-                            }
-                        } catch (Exception e) {
-                            // ignore
-                        }
-                    } else if (c instanceof UpstreamCause) {
-                        final UpstreamCause uc = (UpstreamCause) c; 
-                        export.put(prefix + "upstream.number", "" + uc.getUpstreamBuild());
-                        export.put(prefix + "upstream.project", StringUtils.defaultString(uc.getUpstreamProject()));
-                    } else if (c instanceof RemoteCause) {
-                        final RemoteCause uc = (RemoteCause) c;
-                        String host = uc.getShortDescription(); // fallback
-                        try {
-                            host = (String) getFieldValue(uc, "host");
-                        } catch (Exception e) {
-                            // ignore
-                        }
-                        export.put(prefix + "remote.host", "" + host);
-                        String note = uc.getShortDescription(); // fallback
-                        try {
-                            note = (String) getFieldValue(uc, "note");
-                        } catch (Exception e) {
-                            // ignore
-                        }
-                        export.put(prefix + "remote.note", "" + note);
+                    } catch (Exception e) {
+                        log(listener, e);
                     }
+                } else if (c instanceof UpstreamCause) {
+                    final UpstreamCause uc = (UpstreamCause) c;
+                    put(listener, export, "upstream.number", "" + uc.getUpstreamBuild());
+                    put(listener, export, "upstream.project", uc.getUpstreamProject());
+                } else if (c instanceof RemoteCause) {
+                    final RemoteCause rc = (RemoteCause) c;
+                    String remoteHost = rc.getShortDescription();   // fallback
+                    try {
+                        remoteHost = (String) getFieldValue(rc, "host");
+                    } catch (Exception e) {
+                        log(listener, e);
+                    }
+                    put(listener, export, "remote.host", remoteHost);
+                    String note = rc.getShortDescription();         // fallback
+                    try {
+                        note = (String) getFieldValue(rc, "note");
+                    } catch (Exception e) {
+                        log(listener, e);
+                    }
+                    put(listener, export, "remote.note", note);
                 }
             }
-            FilePath ws = build.getWorkspace();
-            FilePath hudson = ws.child("hudsonBuild.properties");
+        } catch (Exception e) {
+            e.printStackTrace(listener.error("failure during property evaluation"));
+            build.setResult(Result.FAILURE);
+            result = false;
+        }
+        OutputStream out = null;
+        try {
+            final FilePath ws = build.getWorkspace();
+            final FilePath hudson = ws.child("hudsonBuild.properties");
             if (hudson.exists()) {
                 if (!hudson.delete()) {
-                    log(listener.getLogger(), "old file can not be deleted: " + hudson);
+                    listener.error("old file can not be deleted: " + hudson);
                     build.setResult(Result.FAILURE);
                     return false;
                 } else {
-                    log(listener.getLogger(), "old file deleted: " + hudson);
+                    log(listener, "  old file deleted: " + hudson);
                 }
             }
-            final OutputStream out = hudson.write();
+            out = hudson.write();
             export.store(out, "created by " + this.getClass().getName());
             out.close();
-            log(listener.getLogger(), "new properties file written: " + hudson);
-        } catch (IOException e) {
+            log(listener, "  new file written: " + hudson);
+        } catch (Exception e) {
             e.printStackTrace(listener.error("failed to read or write property file"));
             build.setResult(Result.FAILURE);
-            return false;
-        } catch (InterruptedException e) {
-            e.printStackTrace(listener.error("failed to read or write property file"));
-            build.setResult(Result.FAILURE);
-            return false;
+            result = false;
+        } finally {
+            if (out != null) {
+                try {
+                    out.close();
+                } catch (IOException e) {
+                    // ignore
+                }
+            }
+            log(listener, "job-exporter plugin  finished.  That's All Folks!");
+            log(listener, "###################################################################");
         }
-        return true;
+        return result;
     }
 
-    protected void log(final PrintStream logger, final String message) {
-        logger.println("[exporter] " + StringUtils.defaultString(message));
+    protected void put(final BuildListener listener, final Properties export, final String key, final String value) {
+        export.put(prefix + key, StringUtils.defaultString(value));
+        log(listener, "    " + key + ": " + StringUtils.defaultString(value));
+    }
+
+    protected void putIfNotNull(final BuildListener listener, final Properties export, final String key, final String value) {
+        if (value != null) {
+            put(listener, export, key, value);
+        }
+    }
+
+    protected void log(final BuildListener listener, final String message) {
+        final PrintStream logger = listener.getLogger();
+        logger.println(StringUtils.defaultString(message));
+    }
+
+    protected void log(final BuildListener listener, final Exception e) {
+        final PrintStream logger = listener.getLogger();
+        logger.println(ExceptionUtils.getStackTrace(e));
     }
 
     
@@ -220,7 +258,7 @@ public class ExporterBuilder extends Builder {
          * This human readable name is used in the configuration screen.
          */
         public String getDisplayName() {
-            return "Export job runtime parameters";
+            return "export job runtime parameters";
         }
 
         @Override
