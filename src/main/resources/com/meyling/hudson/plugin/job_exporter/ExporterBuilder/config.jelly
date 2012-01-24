@@ -1,9 +1,7 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
   <j:set var="helpURL" value="/plugin/job-exporter" />
-  <f:entry title="This build step exports various build job and Jenkins runtime parameters into a properties file.">
-   
-<!--       help="${helpURL}/help-projectConfig.html"> -->
-     Show me.
+  <f:entry title="This build step exports various build job and Jenkins runtime parameters into a properties file."
+    help="${helpURL}/help-projectConfig.html">
   </f:entry>
 
 </j:jelly>
