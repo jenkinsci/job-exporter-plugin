@@ -9,7 +9,7 @@
   <artifactId>job-exporter</artifactId>
   <packaging>hpi</packaging>
   <name>export dynamic job data</name>
-  <version>0.4-SNAPSHOT</version>
+  <version>0.4</version>
   <description>This plugin exports job parameters into a properties file.</description>
   <url>http://wiki.jenkins-ci.org/display/JENKINS/Job+Exporter+Plugin</url>
   <inceptionYear>2009</inceptionYear>
@@ -46,4 +46,10 @@
       <url>http://maven.jenkins-ci.org:8081/content/repositories/releases/</url>
     </repository>
   </distributionManagement>
+
+  <scm>
+    <connection>scm:svn:https://svn.jenkins-ci.org/tags/job-exporter-0.4</connection>
+    <developerConnection>scm:svn:https://svn.jenkins-ci.org/tags/job-exporter-0.4</developerConnection>
+    <url>https://svn.jenkins-ci.org/tags/job-exporter-0.4</url>
+  </scm>
 </project>
