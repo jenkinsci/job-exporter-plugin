@@ -50,16 +50,13 @@
    <td>ID of user that triggered this job. Has value of "null" for anonymous user. Only filled if the build was trigged by an user.</td>
    </tr><tr>
    <td><tt>build.user.name</tt></td>
-   <td>User that triggered this job.</td>
+   <td>User that triggered this job. Only filled if the build was triggered by an user.</td>
    </tr><tr>
    <td><tt>build.user.fullName</tt></td>
    <td>Full name of user that triggered this job. Mostly identical with value of "build.user.name" (if ID is not null).</td>
    </tr><tr>
    <td><tt>build.user.emailAddress</tt></td>
    <td>Email address of user that triggered this job. If no user with email address was found, the admin email address stands here.</td>
-   </tr><tr>
-   <td><tt>build.user.name</tt></td>
-   <td>User that triggered this job. Only filled if the build was triggered by an user.</td>
    </tr><tr>
    <td><tt>build.upstream.number</tt></td>
    <td>Number of upstream job that triggered this job. Only filled if the build was triggered by an upstream project.</td>
